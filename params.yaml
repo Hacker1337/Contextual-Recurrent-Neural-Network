@@ -1,0 +1,3 @@
+hidden_dims: 10
+input_size: 3  #2/8
+epochs: 12

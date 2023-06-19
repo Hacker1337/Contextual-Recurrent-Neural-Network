@@ -1,0 +1,18 @@
+name: CRNN-env
+channels:
+  - comet_ml
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - comet_ml
+  - jupyter
+  - matplotlib
+  - python-dotenv
+  - pyyaml
+  - tqdm
+  - wandb
+  - tensorflow
+  # - pip
+  # - pip:
+      # - tensorflow==2.12.0

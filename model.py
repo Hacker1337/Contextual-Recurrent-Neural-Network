@@ -27,7 +27,7 @@ class CRNN(Model):
     self.r.trainable = False
 
     proj_h = np.hstack([np.identity(n), np.zeros((n, m))]) # projector on hidden space (first n coords)
-    proj_y = np.hstack([np.zeros((m, n)), np.identity(m)]) # projector on hidden space (first n coords)
+    proj_y = np.hstack([np.zeros((m, n)), np.identity(m)]) # projector measured space (last m coords)
     self.proj_h = tf.convert_to_tensor(proj_h, dtype=self.ftype)
     self.proj_y = tf.convert_to_tensor(proj_y, dtype=self.ftype)
     
@@ -36,7 +36,7 @@ class CRNN(Model):
     alpha = alpha_prev + A_prev@tf.expand_dims(self.f(x), 2) # todo replace A_prev with  tf.linalg.inv(A_prev)
     
     beta = tf.expand_dims(self.g(x), 2)
-    # K    = self.h(x) # TODO gavno kakoe-to
+    # K    = self.h(x) # TODO dich kakaia-to
     S    = tf.reshape(self.r(x), (-1, self.m, self.m))
     B = S@tf.transpose(S, [0, 2, 1]) 
 
