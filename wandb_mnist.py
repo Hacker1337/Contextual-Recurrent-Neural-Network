@@ -6,7 +6,7 @@ import wandb
 import yaml
 
 with open('params.yaml', 'r') as file:
-    config = yaml.load(file, Loader=yaml.FullLoader)
+    config_file = yaml.load(file, Loader=yaml.FullLoader)
 
 
 
@@ -16,9 +16,10 @@ wandb.init(
     
     name="different-repeat-length",
     # track hyperparameters and run metadata
-    config=config,
+    config=config_file,
 )
 
+config = wandb.config
 # %%
 
 
@@ -164,7 +165,8 @@ n = config["hidden_dims"]
 m = config["input_size"]
 from model import CRNN
 model = CRNN(n, m)
-
+print("n =", n)
+print("m =", m)
 
 # %%
 optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
@@ -175,7 +177,7 @@ epochs = config["epochs"]
 hist = {"train_loss":[], "test_loss":[], "train_accuracy":[], "test_accuracy":[], "train_batch_loss":[], "test_batch_loss":[]}
 from tqdm import tqdm
 
-pbar = tqdm(range(epochs))
+pbar = tqdm(range(epochs), ncols=90)
 for epoch in pbar:
     processed = 0
     hist["train_loss"].append(0)
