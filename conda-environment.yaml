@@ -10,6 +10,7 @@ dependencies:
   - matplotlib
   - python-dotenv
   - pyyaml
+  - ruamel.yaml
   - tqdm
   - wandb
   - tensorflow

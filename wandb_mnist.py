@@ -2,12 +2,11 @@
 
 import wandb
 
+from ruamel.yaml import YAML
 
-import yaml
-
+yaml=YAML(typ='safe')
 with open('params.yaml', 'r') as file:
-    config_file = yaml.load(file, Loader=yaml.FullLoader)
-
+    config_file = yaml.load(file)
 
 
 wandb.init(
@@ -15,8 +14,7 @@ wandb.init(
     project="CRNN_mnist",
     
     # name="different-repeat-length",
-    notes="small lr test",
-    # track hyperparameters and run metadata
+    # notes="deterministic run",
     config=config_file,
 )
 
@@ -29,7 +27,9 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 
 
-tf.random.set_seed(42)
+tf.keras.utils.set_random_seed(42)
+tf.config.experimental.enable_op_determinism()
+
 # %% [markdown]
 # Load the MNIST dataset distributed with Keras. 
 
@@ -168,8 +168,6 @@ n = config["hidden_dims"]
 m = config["input_size"]
 from model import CRNN
 model = CRNN(n, m)
-print("n =", n)
-print("m =", m)
 
 # %%
 optimizer = tf.keras.optimizers.Adam(learning_rate=config["lr"])
