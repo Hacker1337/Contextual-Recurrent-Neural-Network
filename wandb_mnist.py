@@ -14,7 +14,8 @@ wandb.init(
     # set the wandb project where this run will be logged
     project="CRNN_mnist",
     
-    name="different-repeat-length",
+    # name="different-repeat-length",
+    notes="small lr test",
     # track hyperparameters and run metadata
     config=config_file,
 )
@@ -27,6 +28,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import tensorflow as tf
 
+
+tf.random.set_seed(42)
 # %% [markdown]
 # Load the MNIST dataset distributed with Keras. 
 
@@ -169,7 +172,7 @@ print("n =", n)
 print("m =", m)
 
 # %%
-optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
+optimizer = tf.keras.optimizers.Adam(learning_rate=config["lr"])
 epochs = config["epochs"]
 
 

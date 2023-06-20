@@ -5,6 +5,8 @@ from tensorflow.keras import Model
 from tensorflow.keras.layers import Dense, Flatten
 from tensorflow.linalg import LinearOperatorFullMatrix, LinearOperatorBlockDiag
 
+tf.random.set_seed(42)
+
 class CRNN(Model):
   def __init__(self, n, m):
     '''
