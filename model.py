@@ -16,7 +16,7 @@ class CRNN(Model):
     super().__init__()
     self.ftype = tf.float64
     self.n, self.m = n, m
-    self.W = tf.Variable(tf.linalg.eye(*(n+m,)*2, batch_shape=(1,), dtype=self.ftype) + tf.random.normal((1,) + (n+m,)*2, 0, noise_factor)) # trainable param
+    self.W = tf.Variable(tf.linalg.eye(*(n+m,)*2, batch_shape=(1,), dtype=self.ftype) + tf.random.normal((1,) + (n+m,)*2, 0, noise_factor, dtype=self.ftype)) # trainable param
 
     # trainable dense layers
     self.f = Dense(n, dtype=self.ftype)

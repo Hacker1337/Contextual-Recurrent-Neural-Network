@@ -1,4 +1,6 @@
-# Comet integration
+# import os
+# os.environ['WANDB_MODE'] = 'offline'
+
 
 import wandb
 
@@ -13,11 +15,14 @@ wandb.init(
     # set the wandb project where this run will be logged
     project="CRNN_mnist",
     
-    # name="different-repeat-length",
-    # notes="deterministic run",
+    # name="test_log_code",
+    # notes="Removed gradient clipping",
     config=config_file,
+    save_code=True,
 )
-
+wandb.run.log_code(include_fn=lambda path: path.endswith("params.yaml") 
+                                        or path.endswith("model.py")
+                                        or path.endswith("wandb_mnist.py"))
 config = wandb.config
 # %%
 
@@ -145,30 +150,10 @@ def accuracy_fn(y_true, predicted_logits):
     return tf.reduce_mean(tf.cast(matches, tf.float32))
 
 # %%
-# n = 10
-# m = 1
-
-# from model import CRNN
-# model = CRNN(n, m)
-
-
-# # %% [markdown]
-# # ## Learning
-
-# # %%
-# optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
-# epochs = 50
-
-
-# %% [markdown]
-# Уменьшаю количество рекуррентных шагов сети
-
-# %%
 n = config["hidden_dims"]
 m = config["input_size"]
 from model import CRNN
 model = CRNN(n, m, config["noise_factor"])
-
 # %%
 optimizer = tf.keras.optimizers.Adam(learning_rate=config["lr"])
 epochs = config["epochs"]
@@ -178,7 +163,7 @@ epochs = config["epochs"]
 hist = {"train_loss":[], "test_loss":[], "train_accuracy":[], "test_accuracy":[], "train_batch_loss":[], "test_batch_loss":[]}
 from tqdm import tqdm
 
-pbar = tqdm(range(epochs), ncols=90)
+pbar = tqdm(range(epochs), ncols=120)
 for epoch in pbar:
     processed = 0
     hist["train_loss"].append(0)
@@ -188,7 +173,7 @@ for epoch in pbar:
             predictions = model.process_img(x)
             loss = loss_fn(y, predictions)
         gradients = tape.gradient(loss, model.trainable_variables)
-        optimizer.apply_gradients(zip([tf.clip_by_value(g, clip_value_min=-1, clip_value_max=1) for g in gradients], model.trainable_variables))
+        optimizer.apply_gradients(zip(gradients, model.trainable_variables))
         acc = accuracy_fn(y, predictions)
         processed += y.shape[0]
         hist["train_loss"][-1] += loss
@@ -222,7 +207,6 @@ for epoch in pbar:
         for name in ["test_accuracy", "test_loss", "train_accuracy", "train_loss", ]
     })
     
-wandb.run.log_code(include_fn=lambda path: path =="model.py" or path == "wandb_mnist.py")
 # %%
 print("Final test accuracy: \t", hist["test_accuracy"][-1].numpy())
 print("Final train accuracy: \t", hist["train_accuracy"][-1].numpy())
