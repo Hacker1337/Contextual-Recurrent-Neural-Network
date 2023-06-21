@@ -8,7 +8,7 @@ from tensorflow.linalg import LinearOperatorFullMatrix, LinearOperatorBlockDiag
 tf.keras.utils.set_random_seed(42)
 
 class CRNN(Model):
-  def __init__(self, n, m):
+  def __init__(self, n, m, noise_factor):
     '''
     n -- latent space dimension
     m -- input size
@@ -16,7 +16,7 @@ class CRNN(Model):
     super().__init__()
     self.ftype = tf.float64
     self.n, self.m = n, m
-    self.W = tf.Variable(tf.random.uniform((1,) + (n+m,)*2, dtype=self.ftype)) # trainable param
+    self.W = tf.Variable(tf.linalg.eye(*(n+m,)*2, batch_shape=(1,), dtype=self.ftype) + tf.random.normal((1,) + (n+m,)*2, 0, noise_factor)) # trainable param
 
     # trainable dense layers
     self.f = Dense(n, dtype=self.ftype)
@@ -35,7 +35,7 @@ class CRNN(Model):
     
   def call(self, A_prev, J_prev, alpha_prev, x):
     x = tf.cast(x, self.ftype)
-    alpha = alpha_prev + A_prev@tf.expand_dims(self.f(x), 2) # todo replace A_prev with  tf.linalg.inv(A_prev)
+    alpha = alpha_prev + tf.linalg.inv(A_prev)@tf.expand_dims(self.f(x), 2)
     
     beta = tf.expand_dims(self.g(x), 2)
     # K    = self.h(x) # TODO dich kakaia-to
@@ -48,8 +48,8 @@ class CRNN(Model):
     
     # transform the graph state by performing a Gaussian operation
     U = self.W@U@tf.transpose(self.W, [0, 2, 1])
-    # w_inv_t = tf.transpose(tf.linalg.inv(self.W), [0, 2, 1])
-    gamma = self.W@gamma   # todo replace w with w_inv
+    w_inv_t = tf.transpose(tf.linalg.inv(self.W), [0, 2, 1])
+    gamma = w_inv_t@gamma
     # L = w_inv_t@L
     
     # read out the lattice and stabilizer phases

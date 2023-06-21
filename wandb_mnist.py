@@ -167,7 +167,7 @@ def accuracy_fn(y_true, predicted_logits):
 n = config["hidden_dims"]
 m = config["input_size"]
 from model import CRNN
-model = CRNN(n, m)
+model = CRNN(n, m, config["noise_factor"])
 
 # %%
 optimizer = tf.keras.optimizers.Adam(learning_rate=config["lr"])

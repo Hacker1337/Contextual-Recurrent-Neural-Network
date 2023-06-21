@@ -1,4 +1,5 @@
 hidden_dims: 10
-input_size: 3  #2/8
+input_size: 2  #2/8
 epochs: 12
 lr: 1e-3
+noise_factor: 0.1
