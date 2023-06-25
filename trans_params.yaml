@@ -1,0 +1,8 @@
+hidden_dims: 30 # currently equal to the input size
+# input_size: 2 
+# epochs: 12
+# lr: 1e-3
+# noise_factor: 0
+# dataset: spa  # spa / rus
+
+model: crnn  # attention_gru, gru, crnn, attention_crnn
