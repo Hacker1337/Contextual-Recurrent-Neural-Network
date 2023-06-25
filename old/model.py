@@ -2,8 +2,8 @@ import numpy as np
 
 import tensorflow as tf
 from tensorflow.keras import Model
-from tensorflow.keras.layers import Dense, Flatten
-from tensorflow.linalg import LinearOperatorFullMatrix, LinearOperatorBlockDiag
+from tensorflow.keras.layers import Dense
+from tensorflow.linalg import LinearOperatorFullMatrix
 
 tf.keras.utils.set_random_seed(42)
 
