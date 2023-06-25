@@ -1,117 +1,40 @@
 import tensorflow as tf
 from tensorflow.keras import layers
 
-from tensorflow.linalg import LinearOperatorFullMatrix
-import numpy as np
 
-class ContextualRNNCell(layers.Layer):
-    '''
-    n -- latent space dimension
-    m -- input size
-    '''
-    def __init__(self, units, **kwargs):
-        super().__init__(**kwargs)
-        self.n = units
-        self.state_size = [tf.TensorShape((self.n, self.n)), tf.TensorShape((self.n, self.n)), tf.TensorShape((self.n, 1))]
-        self.ftype = tf.float32
-        
-    def build(self, input_shape):  
-
-        self.m = input_shape[-1]
-        n, m = self.n, self.m
-        self.W = tf.Variable(tf.linalg.eye(*(n+m,)*2, batch_shape=(1,), dtype=self.ftype)) # trainable param
-
-        # trainable dense layers
-        self.f = layers.Dense(n, dtype=self.ftype)
-        self.g = layers.Dense(m, dtype=self.ftype)
-        
-        # constant dense layers
-        self.h = layers.Dense(m, dtype=self.ftype)
-        self.h.trainable = False
-        self.r = layers.Dense(m*m, dtype=self.ftype)
-        self.r.trainable = False
-
-        proj_h = np.hstack([np.identity(n), np.zeros((n, m))]) # projector on hidden space (first n coords)
-        proj_y = np.hstack([np.zeros((m, n)), np.identity(m)]) # projector measured space (last m coords)
-        self.proj_h = tf.convert_to_tensor(proj_h, dtype=self.ftype)
-        self.proj_y = tf.convert_to_tensor(proj_y, dtype=self.ftype)
-        
-    def call(self, input, states):
-        A_prev, J_prev, alpha_prev = states
-        x = input
-        
-        x = tf.cast(x, self.ftype)
-        alpha = alpha_prev + tf.linalg.inv(A_prev)@tf.expand_dims(self.f(x), 2)
-        
-        beta = tf.expand_dims(self.g(x), 2)
-        # K    = self.h(x) # TODO dich kakaia-to
-        S    = tf.reshape(self.r(x), (-1, self.m, self.m))
-        B = S@tf.transpose(S, [0, 2, 1]) 
-
-        U = tf.linalg.LinearOperatorBlockDiag([LinearOperatorFullMatrix(A_prev),
-                                            LinearOperatorFullMatrix(B)]).to_dense()
-        gamma = tf.concat([alpha, beta], 1)
-        
-        # transform the graph state by performing a Gaussian operation
-        U = self.W@U@tf.transpose(self.W, [0, 2, 1])
-        w_inv_t = tf.transpose(tf.linalg.inv(self.W), [0, 2, 1])
-        gamma = w_inv_t@gamma
-        # L = w_inv_t@L
-        
-        # read out the lattice and stabilizer phases
-        y = self.proj_y@gamma     #  Пy@L
-        
-        # project out the measured register
-        A = self.proj_h@U@tf.transpose(self.proj_h, [1, 0])
-        alpha = self.proj_h@gamma
-        return y[..., 0], (A, J_prev, alpha)    # TODO replace J_prev with counted new J
-    
-    def get_initial_state(self, inputs=None, batch_size=None, dtype=None):
-        A = tf.eye(self.n, batch_shape=[batch_size], dtype=self.ftype)
-        J = tf.zeros((batch_size, self.n, self.n), dtype=self.ftype)
-        alpha = tf.zeros((batch_size, self.n, 1), dtype=self.ftype)
-        
-        return A, J, alpha
-
-
-
-def get_rnn_layer(units, **kwargs):
-    return layers.RNN(
-                      ContextualRNNCell(units),
-                      **kwargs)
-    
 class Encoder(tf.keras.layers.Layer):
-    def __init__(self, text_processor, units, input_dim):
-        super(Encoder, self).__init__()
-        self.text_processor = text_processor
-        self.vocab_size = text_processor.vocabulary_size()
-        self.units = units
+  def __init__(self, text_processor, units, input_dim):
+    super(Encoder, self).__init__()
+    self.text_processor = text_processor
+    self.vocab_size = text_processor.vocabulary_size()
+    self.units = units
 
-        # The embedding layer converts tokens to vectors
-        self.embedding = tf.keras.layers.Embedding(self.vocab_size, input_dim,
-                                                mask_zero=True)
+    # The embedding layer converts tokens to vectors
+    self.embedding = tf.keras.layers.Embedding(self.vocab_size, input_dim,
+                                               mask_zero=True)
 
-        # The RNN layer processes those vectors sequentially.
-        self.rnn = get_rnn_layer(units, return_state=True)
+    # The RNN layer processes those vectors sequentially.
+    self.rnn = tf.keras.layers.GRU(units,
+                            # Return the sequence and state
+                            return_state=True,
+                            recurrent_initializer='glorot_uniform')
 
-  
+  def call(self, x):
+    # 2. The embedding layer looks up the embedding vector for each token.
+    x = self.embedding(x)
 
-    def call(self, x):
-        # 2. The embedding layer looks up the embedding vector for each token.
-        x = self.embedding(x)
+    # 3. The GRU processes the sequence of embeddings.
+    x, last_state = self.rnn(x)
 
-        # 3. The GRU processes the sequence of embeddings.
-        x, *last_state = self.rnn(x)
+    return last_state
 
-        return last_state
-
-    def convert_input(self, texts):
-        texts = tf.convert_to_tensor(texts)
-        if len(texts.shape) == 0:
-            texts = tf.convert_to_tensor(texts)[tf.newaxis]
-        context = self.text_processor(texts).to_tensor()
-        context = self(context)
-        return context
+  def convert_input(self, texts):
+    texts = tf.convert_to_tensor(texts)
+    if len(texts.shape) == 0:
+      texts = tf.convert_to_tensor(texts)[tf.newaxis]
+    context = self.text_processor(texts).to_tensor()
+    context = self(context)
+    return context
 
 class Decoder(tf.keras.layers.Layer):
 
@@ -137,7 +60,10 @@ class Decoder(tf.keras.layers.Layer):
                                                units, mask_zero=True)
 
     # 2. The RNN keeps track of what's been generated so far.
-    self.rnn = get_rnn_layer(units, return_sequences=True, return_state=True)
+    self.rnn = tf.keras.layers.GRU(units,
+                                   return_sequences=True,
+                                   return_state=True,
+                                   recurrent_initializer='glorot_uniform')
 
     
     # 4. This fully connected layer produces the logits for each
@@ -153,15 +79,13 @@ class Decoder(tf.keras.layers.Layer):
     x = self.embedding(x)
 
     # 2. Process the target sequence.
-    y, *new_states = self.rnn(x, initial_state=state)
-    if len(new_states) == 1:
-        new_states = new_states[0]
+    y, new_state = self.rnn(x, initial_state=state)
 
     # Step 4. Generate logit predictions for the next token.
     logits = self.output_layer(y)
 
     if return_state:
-      return logits, new_states
+      return logits, new_state
     else:
       return logits
 
@@ -215,10 +139,9 @@ class Translator(tf.keras.Model):
 
   def call(self, inputs):
     context, x = inputs
-    
     encoder_state = self.encoder(context)
     logits = self.decoder(x, encoder_state)
-    
+
     #TODO(b/250038731): remove this
     try:
       # Delete the keras mask, so keras doesn't scale the loss+accuracy.
