@@ -1,0 +1,27 @@
+на чистой винде все очень плохо с ней и еще и старая версия почему-то не устанавливается.... 
+вот такая ошибка https://stackoverflow.com/questions/65130985/condaerror-downloaded-bytes-did-not-match-content-length-while-trying-to-downlo
+
+
+Пытаюсь в wsl.
+
+mamba create -n CRNN-gpu-pip cudatoolkit=11.8.0 python=3.10
+
+python3 -m pip install nvidia-cudnn-cu11==8.6.0.163 tensorflow==2.12.*
+вот на этом шаге нужная версия не находится...
+
+
+... 
+Все сделал, gpu-шка не видится. Попробую все таки системно 11.8 версию куды поставить.
+
+И еще прямо внутри всл поставить cuda-tool-kit
+
+Все поставил, теперь 
+failed call to cuInit: CUDA_ERROR_NO_DEVICE: no CUDA-capable device is detected
+
+
+Теперь пытаюсь нативно хотя бы 2.10 поставить себе
+
+mamba create -n tf-gpu python=3.9 cudatoolkit=11.2 cudnn=8.1.0 && conda activate tf-gpu && pip install "tensorflow<2.11" 
+
+Сработало)))) 
+pip install jupyter matplotlib python-dotenv ruamel.yaml tqdm wandb pandas
