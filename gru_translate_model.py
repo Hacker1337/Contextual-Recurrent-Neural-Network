@@ -89,12 +89,11 @@ class Decoder(tf.keras.layers.Layer):
     else:
       return logits
 
-  def get_initial_state(self, context):
-    batch_size = tf.shape(context)[0]
+  def get_initial_state(self, batch_size):
     start_tokens = tf.fill([batch_size, 1], self.start_token)
     done = tf.zeros([batch_size, 1], dtype=tf.bool)
     embedded = self.embedding(start_tokens)
-    return start_tokens, done, self.rnn.get_initial_state(embedded)[0]
+    return start_tokens, done, self.rnn.get_initial_state(embedded)
 
   def tokens_to_text(self, tokens):
     words = self.id_to_word(tokens)
@@ -103,10 +102,10 @@ class Decoder(tf.keras.layers.Layer):
     result = tf.strings.regex_replace(result, ' *\[END\] *$', '')
     return result
 
-  def get_next_token(self, context, next_token, done, state, temperature = 0.0):
+  def get_next_token(self, last_token, done, state, temperature = 0.0):
     logits, state = self(
-      context, next_token,
-      state = state,
+      last_token,
+      state,
       return_state=True)
 
     if temperature == 0.0:
@@ -139,9 +138,10 @@ class Translator(tf.keras.Model):
 
   def call(self, inputs):
     context, x = inputs
+    
     encoder_state = self.encoder(context)
     logits = self.decoder(x, encoder_state)
-
+    
     #TODO(b/250038731): remove this
     try:
       # Delete the keras mask, so keras doesn't scale the loss+accuracy.
@@ -156,29 +156,30 @@ class Translator(tf.keras.Model):
               max_length=50,
               temperature=0.0):
     # Process the input texts
-    context = self.encoder.convert_input(texts)
-    batch_size = tf.shape(texts)[0]
+    last_state = self.encoder.convert_input(texts)
+    if type(last_state) == list:
+      batch_size = tf.shape(last_state[0])[0]
+    else:
+      batch_size = tf.shape(last_state)[0]
+
 
     # Setup the loop inputs
     tokens = []
-    attention_weights = []
-    next_token, done, state = self.decoder.get_initial_state(context)
-
+    next_token, done, _ = self.decoder.get_initial_state(batch_size)
+    state = last_state
     for _ in range(max_length):
       # Generate the next token
       next_token, done, state = self.decoder.get_next_token(
-          context, next_token, done,  state, temperature)
+          next_token, done,  state, temperature)
 
       # Collect the generated tokens
       tokens.append(next_token)
-      attention_weights.append(self.decoder.last_attention_weights)
-
+      
       if tf.executing_eagerly() and tf.reduce_all(done):
         break
 
     # Stack the lists of tokens and attention weights.
     tokens = tf.concat(tokens, axis=-1)   # t*[(batch 1)] -> (batch, t)
-    self.last_attention_weights = tf.concat(attention_weights, axis=1)  # t*[(batch 1 s)] -> (batch, t s)
 
     result = self.decoder.tokens_to_text(tokens)
     return result
