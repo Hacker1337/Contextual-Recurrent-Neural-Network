@@ -1,6 +1,6 @@
 hidden_dims: 26 # currently equal to the input size
 input_size: 26
-epochs: 2
+epochs: 80
 lr: 1e-3
 # noise_factor: 0
 # dataset: spa  # spa / rus
