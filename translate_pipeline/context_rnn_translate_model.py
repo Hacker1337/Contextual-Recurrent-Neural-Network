@@ -41,7 +41,8 @@ class ContextualRNNCell(layers.Layer):
         x = input
         
         x = tf.cast(x, self.ftype)
-        alpha = alpha_prev + tf.linalg.inv(A_prev)@tf.expand_dims(self.f(x), 2)
+        # alpha = alpha_prev + tf.linalg.inv(A_prev)@tf.expand_dims(self.f(x), 2)
+        alpha = alpha_prev + tf.expand_dims(self.f(x), 2)
         
         beta = tf.expand_dims(self.g(x), 2)
         # K    = self.h(x) # TODO dich kakaia-to
