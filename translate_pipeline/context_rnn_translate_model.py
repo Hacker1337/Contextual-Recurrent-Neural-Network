@@ -77,10 +77,16 @@ class ContextualRNNCell(layers.Layer):
 
 
 def get_rnn_layer(units, **kwargs):
-    return layers.RNN(
+    import os
+    if os.environ["model"] == "crnn":
+        return layers.RNN(
                       ContextualRNNCell(units),
                       **kwargs)
+    elif os.environ["model"] == "lstm":
+        return layers.LSTM(units,
+                      **kwargs)
     
+
 class Encoder(tf.keras.layers.Layer):
     def __init__(self, text_processor, units, input_dim):
         super(Encoder, self).__init__()
