@@ -1,5 +1,5 @@
 import tensorflow as tf
-from tensorflow.keras import layers
+from tensorflow.python.keras import layers
 
 from tensorflow.linalg import LinearOperatorFullMatrix
 import numpy as np
@@ -12,14 +12,17 @@ class ContextualRNNCell(layers.Layer):
     def __init__(self, units, **kwargs):
         super().__init__(**kwargs)
         self.n = units
-        self.state_size = [tf.TensorShape((self.n, self.n)), tf.TensorShape((self.n, self.n)), tf.TensorShape((self.n, 1))]
+        self.state_size = [
+            # tf.TensorShape((self.n, self.n)),
+            # tf.TensorShape((self.n, self.n)),
+            tf.TensorShape((self.n, 1))]
         self.ftype = tf.float32
-        
-    def build(self, input_shape):  
+
+    def build(self, input_shape):
 
         self.m = input_shape[-1]
         n, m = self.n, self.m
-        self.W = tf.Variable(tf.linalg.eye(*(n+m,)*2, batch_shape=(1,), dtype=self.ftype)) # trainable param
+        self.W = tf.Variable(tf.linalg.eye(*(n+m,)*2, batch_shape=(1,), dtype=self.ftype))  # trainable param
 
         # trainable dense layers
         self.f = layers.Dense(n, dtype=self.ftype)
@@ -31,49 +34,35 @@ class ContextualRNNCell(layers.Layer):
         self.r = layers.Dense(m*m, dtype=self.ftype)
         self.r.trainable = False
 
-        proj_h = np.hstack([np.identity(n), np.zeros((n, m))]) # projector on hidden space (first n coords)
-        proj_y = np.hstack([np.zeros((m, n)), np.identity(m)]) # projector measured space (last m coords)
+        proj_h = np.hstack([np.identity(n), np.zeros((n, m))])  # projector on hidden space (first n coords)
+        proj_y = np.hstack([np.zeros((m, n)), np.identity(m)])  # projector measured space (last m coords)
         self.proj_h = tf.convert_to_tensor(proj_h, dtype=self.ftype)
         self.proj_y = tf.convert_to_tensor(proj_y, dtype=self.ftype)
         
     def call(self, input, states):
-        A_prev, J_prev, alpha_prev = states
+        alpha_prev, = states
         x = input
         
         x = tf.cast(x, self.ftype)
-        # alpha = alpha_prev + tf.linalg.inv(A_prev)@tf.expand_dims(self.f(x), 2)
         alpha = alpha_prev + tf.expand_dims(self.f(x), 2)
         
         beta = tf.expand_dims(self.g(x), 2)
-        # K    = self.h(x) # TODO dich kakaia-to
-        S    = tf.reshape(self.r(x), (-1, self.m, self.m))
-        B = S@tf.transpose(S, [0, 2, 1]) 
-
-        U = tf.linalg.LinearOperatorBlockDiag([LinearOperatorFullMatrix(A_prev),
-                                            LinearOperatorFullMatrix(B)]).to_dense()
         gamma = tf.concat([alpha, beta], 1)
         
         # transform the graph state by performing a Gaussian operation
-        U = self.W@U@tf.transpose(self.W, [0, 2, 1])
-        w_inv_t = tf.transpose(tf.linalg.inv(self.W), [0, 2, 1])
-        gamma = w_inv_t@gamma
-        # L = w_inv_t@L
-        
-        # read out the lattice and stabilizer phases
-        y = self.proj_y@gamma     #  Пy@L
-        
-        # project out the measured register
-        A = self.proj_h@U@tf.transpose(self.proj_h, [1, 0])
-        alpha = self.proj_h@gamma
-        return y[..., 0], (A, J_prev, alpha)    # TODO replace J_prev with counted new J
-    
-    def get_initial_state(self, inputs=None, batch_size=None, dtype=None):
-        A = tf.eye(self.n, batch_shape=[batch_size], dtype=self.ftype)
-        J = tf.zeros((batch_size, self.n, self.n), dtype=self.ftype)
-        alpha = tf.zeros((batch_size, self.n, 1), dtype=self.ftype)
-        
-        return A, J, alpha
+        # w_inv_t = tf.transpose(tf.linalg.inv(self.W), [0, 2, 1])
+        # gamma = w_inv_t@gamma
+        gamma = self.W@gamma
 
+        # read out the lattice and stabilizer phases
+        y = self.proj_y@gamma  # Пy@L
+
+        alpha = self.proj_h@gamma
+        return y[..., 0], (alpha,) 
+
+    def get_initial_state(self, inputs=None, batch_size=None, dtype=None):
+        alpha = tf.zeros((batch_size, self.n, 1), dtype=self.ftype)
+        return alpha,
 
 
 def get_rnn_layer(units, **kwargs):
@@ -85,6 +74,11 @@ def get_rnn_layer(units, **kwargs):
     elif os.environ["model"] == "lstm":
         return layers.LSTM(units,
                       **kwargs)
+    elif os.environ["model"] == "gru":
+        return layers.GRU(units,
+                      **kwargs)
+    else:
+        raise NotImplementedError("Model " + os.environ["model"] + " is not implemented")
     
 
 class Encoder(tf.keras.layers.Layer):
